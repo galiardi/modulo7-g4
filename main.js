@@ -11,6 +11,10 @@ switch (command) {
     await getSaldo(args);
     break;
 
+  case 'mostrar-cuentas':
+    await showAllAccounts();
+    break;
+
   case 'transferir':
     await transfer(args);
     break;
@@ -61,14 +65,33 @@ async function getSaldo([id_cuenta]) {
   }
 }
 
-async function transfer([sourceAccount, destinationAccount, quantity]) {
-  await connection.beginTransaction();
-
+async function showAllAccounts() {
   try {
-    const [result] = await connection.execute('CALL transfer_(?, ?, ?)', [
+    const [rows] = await connection.execute('SELECT * FROM cuentas;');
+    if (!rows.length) return console.log('No hay cuentas registradas');
+    console.table(rows);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function transfer([
+  sourceAccount,
+  destinationAccount,
+  quantity,
+  description = 'sin descripcion',
+]) {
+  if (!sourceAccount || !destinationAccount || !quantity)
+    return console.log('Faltan parametros.');
+
+  await connection.beginTransaction();
+  try {
+    // Ver procedimiento almacenado transfer_ en setup.js
+    const [result] = await connection.execute('CALL transfer_(?, ?, ?, ?)', [
       sourceAccount,
       destinationAccount,
       quantity,
+      description,
     ]);
     console.table(result[0]);
 
@@ -87,14 +110,14 @@ async function showTransactions([id_cuenta]) {
   try {
     const query = `
     SELECT * FROM transacciones
-    WHERE id_cuenta = ?;
+    WHERE id_cuenta_origen = ?;
   `;
 
     const [rows] = await connection.execute(query, [id_cuenta]);
 
     if (!rows.length) return console.log('La cuenta consultada no posee transacciones.');
 
-    console.log(rows);
+    console.table(rows);
   } catch (error) {
     console.log(error);
   }
